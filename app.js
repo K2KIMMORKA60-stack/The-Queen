@@ -1453,7 +1453,7 @@
     const verified = !otherRow && st.settings.peerPin && st.settings.peerPin.verified;
     panel('Code de sécurité',
       h('section', { class: 'card center-text' },
-        h('p', { text: 'Ensemble, ou en appel vidéo en lisant les chiffres à voix haute : Ce code doit être exactement le même chez toi et chez ' + (st.settings.peerNick || peer.nom || 'ta moitié') + '.' }),
+        h('p', { text: 'Ensemble, ou en appel vidéo en lisant les chiffres à voix haute. Ce code doit être exactement le même chez toi et chez ' + (st.settings.peerNick || peer.nom || 'ta moitié') + '.' }),
         h('div', { class: 'safety', 'aria-label': 'Code de sécurité' }, groups.map(g => h('span', { text: g }))),
         verified ? h('p', { class: 'ok', text: 'Vous avez déjà vérifié ce code.' }) : null,
         !otherRow ? h('div', { class: 'col' },
