@@ -141,6 +141,17 @@ const wait = (pg, fn, arg, t = 15000) => pg.waitForFunction(fn, arg, { timeout: 
   await A.click('button[aria-label=Discussion]'); await A.waitForSelector('.chat');
   await B.click('button[aria-label=Discussion]'); await B.waitForSelector('.chat');
   console.log('ok  onglets Médias (3 photos) et Appels');
+  await A.click('button[aria-label=Vous]');
+  await A.click('button[aria-label="Couleur Violet"]'); await A.click('button[aria-label="Fond Galaxie"]');
+  await A.locator('.swgrid').scrollIntoViewIfNeeded();
+  await A.screenshot({ path: OUT + '/15-theme.png' });
+  await A.click('button[aria-label=Discussion]'); await A.waitForSelector('.chat');
+  await A.screenshot({ path: OUT + '/16-theme-discussion.png' });
+  await A.reload(); await A.fill('#pin', '482915'); await A.click('button[type=submit]'); await A.waitForSelector('.chat', { timeout: 20000 });
+  assert((await A.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--gold'))).trim() === '#a070ff', 'thème gardé');
+  await A.click('button[aria-label=Vous]'); await A.click('button[aria-label="Couleur Bleu"]'); await A.click('button[aria-label="Fond Noir"]');
+  await A.click('button[aria-label=Discussion]'); await A.waitForSelector('.chat');
+  console.log('ok  thème choisi, gardé après réouverture');
 
   // Historique local chiffré
   const raw = await A.evaluate(() => new Promise(r => { const q = indexedDB.open('the-queen', 1); q.onsuccess = () => { const t = q.result.transaction('msgs').objectStore('msgs').getAll(); t.onsuccess = () => r(JSON.stringify(t.result)); }; }));

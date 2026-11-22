@@ -74,9 +74,10 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline: non
 .banner .row { display: flex; gap: 8px; flex-wrap: wrap; }
 
 .list { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 10px max(10px, env(safe-area-inset-right)) 14px max(10px, env(safe-area-inset-left)); display: flex; flex-direction: column; gap: 4px;
-  background-color: var(--bg);
+  background-color: transparent;
   background-image: radial-gradient(circle at 20% 30%, rgba(207, 238, 255, .05) 0 1px, transparent 1.5px), radial-gradient(circle at 70% 80%, rgba(217, 180, 90, .05) 0 1px, transparent 1.5px);
   background-size: 46px 46px, 64px 64px; }
+.chat { background-color: var(--bg); background-image: var(--wall, none); background-size: cover; background-repeat: no-repeat; }
 .empty { margin: auto; text-align: center; color: var(--muted); max-width: 30ch; display: flex; flex-direction: column; align-items: center; gap: 10px; }
 .empty img { opacity: .9; }
 .day { align-self: center; margin: 10px 0 6px; }
@@ -170,16 +171,16 @@ em.warn { color: var(--warn); font-style: normal; }
   box-shadow: 0 8px 28px rgba(0, 0, 0, .45); flex: none; }
 .chat.tabbed .tabbar { margin-top: 0; }
 .chat.tabbed .composer { border-top: 1px solid var(--line); }
-.tab { flex: 1; min-width: 0; background: none; border: 0; color: #9fb6d6; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 0 3px; border-radius: 28px; }
+.tab { flex: 1; min-width: 0; background: none; border: 0; color: var(--muted); display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 0 3px; border-radius: 28px; }
 .tpill { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 52px; height: 34px; border-radius: 18px; transition: background .15s; }
 .tabic { width: 27px; height: 27px; }
 .tlabel { font-size: 11px; font-weight: 600; letter-spacing: .01em; white-space: nowrap; }
 .tab.on { color: var(--gold2); }
-.tab.on .tpill { background: linear-gradient(180deg, rgba(64, 156, 255, .38), rgba(30, 110, 230, .26)); }
+.tab.on .tpill { background: rgba(61, 155, 255, .3); background: color-mix(in srgb, var(--gold) 32%, transparent); }
 .tab:active .tpill { background: var(--panel2); }
 .tabav { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; border: 1.5px solid var(--gold); }
-.tbadge { position: absolute; top: -4px; right: 2px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px; background: #1e88ff; color: #fff; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
-.tdot { position: absolute; top: 2px; right: 10px; width: 10px; height: 10px; border-radius: 50%; background: #1e88ff; box-shadow: 0 0 0 2px rgba(32, 29, 38, .94); }
+.tbadge { position: absolute; top: -4px; right: 2px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px; background: var(--red); color: #fff; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+.tdot { position: absolute; top: 2px; right: 10px; width: 10px; height: 10px; border-radius: 50%; background: var(--red); box-shadow: 0 0 0 2px rgba(32, 29, 38, .94); }
 .ptitle.big { font-size: 30px; padding: 4px 6px; }
 
 /* avatars, anneau de statut */
@@ -246,3 +247,17 @@ img.avatar { object-fit: cover; }
 .swatches { display: flex; gap: 8px; }
 .sw { width: 28px; height: 28px; border-radius: 50%; border: 2px solid #fff; padding: 0; }
 .ibtn.send.big { align-self: flex-end; width: 56px; height: 56px; }
+
+/* thèmes */
+.swgrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; width: 100%; }
+.swatch { background: none; border: 0; padding: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; color: var(--muted); font-size: 12px; }
+.swatch .dot { width: 46px; height: 46px; border-radius: 50%; border: 3px solid transparent; box-shadow: inset 0 0 0 1px rgba(255,255,255,.15); }
+.swatch.on { color: var(--text); }
+.swatch.on .dot { border-color: #fff; }
+.wgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; width: 100%; }
+.wall { position: relative; aspect-ratio: 9 / 15; border-radius: 14px; border: 3px solid transparent; padding: 0; overflow: hidden; background-color: var(--bg); background-size: cover; }
+.wall.on { border-color: #fff; }
+.wall i { position: absolute; height: 14%; border-radius: 9px; }
+.wall i.a { left: 10%; top: 22%; width: 55%; background: #2a2832; }
+.wall i.b { right: 10%; top: 44%; width: 55%; background: var(--me2); }
+.wall span { position: absolute; left: 0; right: 0; bottom: 6px; font-size: 11px; color: #fff; text-shadow: 0 1px 3px #000; }
