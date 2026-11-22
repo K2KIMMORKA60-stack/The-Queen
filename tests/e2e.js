@@ -88,8 +88,8 @@ const wait = (pg, fn, arg, t = 15000) => pg.waitForFunction(fn, arg, { timeout: 
   await A.click('.banner.gold >> nth=0').catch(() => {});
   await A.goto(A.url()); // pas nécessaire : on passe par les réglages
   await A.waitForSelector('#pin'); await A.fill('#pin', '482915'); await A.click('button[type=submit]'); await A.waitForSelector('.chat', { timeout: 20000 });
-  await A.click('button[aria-label=Réglages]'); await A.click('text=Code de sécurité');
-  await B.click('button[aria-label=Réglages]'); await B.click('text=Code de sécurité');
+  await A.click('button[aria-label=Vous]'); await A.click('text=Code de sécurité');
+  await B.click('button[aria-label=Vous]'); await B.click('text=Code de sécurité');
   const nA = await A.textContent('.safety'), nB = await B.textContent('.safety');
   assert.strictEqual(nA, nB); assert.strictEqual(nA.length, 60);
   await A.screenshot({ path: OUT + '/3-code.png' });
@@ -98,13 +98,57 @@ const wait = (pg, fn, arg, t = 15000) => pg.waitForFunction(fn, arg, { timeout: 
   console.log('ok  même code de sécurité des deux côtés : ' + nA.match(/.{5}/g).join(' '));
   await B.click('button[aria-label=Retour]');
 
+  // Photo de profil A -> B (chiffrée)
+  const fs = require('fs'), path = require('path');
+  const pic = fs.readFileSync(path.join(__dirname, '..', 'icons', 'icon-512.png'));
+  await A.click('button[aria-label=Vous]');
+  const [fc] = await Promise.all([A.waitForEvent('filechooser'), A.click('button[aria-label="Changer ma photo de profil"]')]);
+  await fc.setFiles({ name: 'moi.png', mimeType: 'image/png', buffer: pic });
+  await wait(A, () => /Photo envoyée/.test(document.getElementById('toast').textContent));
+  await B.click('button[aria-label=Discussion]');
+  await wait(B, () => { const i = document.querySelector('.avbtn img'); return i && i.src.startsWith('data:image/jpeg'); });
+  assert(!JSON.stringify(await st()).includes('data:image'), 'le serveur ne voit pas la photo');
+  await A.screenshot({ path: OUT + '/9-vous.png' });
+  console.log('ok  photo de profil reçue par ma moitié, serveur aveugle');
+
+  // Statut texte A -> B, puis « vu »
+  await A.click('button[aria-label=Statut]');
+  await A.click('.card .row .btn:not(.gold)');
+  await A.fill('.stxt', 'Je pense à toi ❤️');
+  await A.click('button[aria-label="Publier le statut"]');
+  await wait(A, () => /Statut publié/.test(document.getElementById('toast').textContent));
+  await wait(B, () => document.querySelector('.avbtn .ring.new'));
+  await wait(B, () => document.querySelector('.tab[aria-label=Statut] .tdot'));
+  await B.screenshot({ path: OUT + '/10-statut-nouveau.png' });
+  await B.click('button[aria-label=Statut]');
+  await B.click('.srow.plain');
+  await wait(B, () => (document.querySelector('.story .sbig')||{}).textContent === 'Je pense à toi ❤️');
+  await B.screenshot({ path: OUT + '/11-statut-vu.png' });
+  await B.click('.story button[aria-label=Fermer]');
+  await A.click('button[aria-label=Discussion]'); await A.click('button[aria-label=Statut]');
+  await wait(A, () => /Vu par Amina/.test(document.querySelector('.pbody').textContent), null, 20000);
+  assert(!JSON.stringify(await st()).includes('pense'), 'le serveur ne voit pas le statut');
+  await A.screenshot({ path: OUT + '/12-mon-statut.png' });
+  console.log('ok  statut reçu, vu, et serveur aveugle');
+
+  // Onglets Médias et Appels
+  await A.click('button[aria-label=Médias]');
+  await wait(A, () => document.querySelectorAll('.mcell').length >= 3);
+  await A.screenshot({ path: OUT + '/13-medias.png' });
+  await A.click('button[aria-label=Appels]');
+  await A.waitForSelector('text=Aucun appel pour le moment.');
+  await A.screenshot({ path: OUT + '/14-appels.png' });
+  await A.click('button[aria-label=Discussion]'); await A.waitForSelector('.chat');
+  await B.click('button[aria-label=Discussion]'); await B.waitForSelector('.chat');
+  console.log('ok  onglets Médias (3 photos) et Appels');
+
   // Historique local chiffré
   const raw = await A.evaluate(() => new Promise(r => { const q = indexedDB.open('the-queen', 1); q.onsuccess = () => { const t = q.result.transaction('msgs').objectStore('msgs').getAll(); t.onsuccess = () => r(JSON.stringify(t.result)); }; }));
   assert(!raw.includes('rendez-vous'), 'historique local chiffré');
   console.log('ok  historique du téléphone chiffré');
 
   // Changement de clé : B efface son téléphone et recrée ses clés
-  await B.click('button[aria-label=Réglages]');
+  await B.click('button[aria-label=Vous]');
   await B.click('text=Tout effacer sur ce téléphone'); await B.click('.modal button.danger');
   await B.waitForLoadState('load'); await B.waitForTimeout(800);
   await B.waitForSelector('#email', { timeout: 20000 });
