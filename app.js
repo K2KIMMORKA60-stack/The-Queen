@@ -2,11 +2,11 @@
 (function () {
   'use strict';
   const C = self.QueenCrypto, S = self.QueenStore, A = self.QueenAPI;
-  const VERSION = '1.1.0';
+  const VERSION = '1.2.0';
   const root = document.getElementById('app');
   const DAY = 86400000;
   const MAX_ABOUT = 140, MAX_STATUS_TXT = 700, MAX_STATUS_IMG = 1.2e6, MAX_AVATAR = 250000;
-  const STATUS_BG = ['#7a0f1c', '#1c3d5a', '#2f5d3a', '#5a3d7a', '#7a5a1c', '#111111'];
+  const STATUS_BG = ['#0f3a73', '#1c3d5a', '#2f5d3a', '#5a3d7a', '#7a5a1c', '#111111'];
   const MAX_TEXT = 8000, MAX_AUDIO_S = 180, MAX_MEDIA = 4.5e6, MAX_VIDEO = 50 * 1024 * 1024;
   const KIND = { text: 'message', image: 'photo', audio: 'vocal', video: 'video' };
 
@@ -106,6 +106,60 @@
     if (/rate limit|too many/i.test(m)) return 'Trop de tentatives. Réessaie dans quelques minutes.';
     if (/Failed to fetch|NetworkError|Load failed/i.test(m)) return 'Pas de connexion internet.';
     return 'Erreur : ' + m;
+  }
+
+
+  // ---------- thème (couleur et fond, sur ce téléphone seulement) ----------
+  const THEMES = {
+    bleu: ['Bleu', '#3d9bff', '#8cc8ff', '#1e6fe0', '#4aa3ff', '#0f2e57', '#174683'],
+    vert: ['Vert', '#25c26e', '#8ee6b4', '#128c4a', '#2fd47d', '#0d3d27', '#145c3a'],
+    turquoise: ['Turquoise', '#1fc8c8', '#8ff0ee', '#0f9a9a', '#2ad8d0', '#0b3b3d', '#11595a'],
+    violet: ['Violet', '#a070ff', '#cdb4ff', '#6c3bd9', '#9a6bff', '#2b1752', '#3d2273'],
+    rose: ['Rose', '#ff5fa2', '#ffb3d4', '#d63384', '#ff6fae', '#4d1430', '#6b1d44'],
+    orange: ['Orange', '#ff9a3d', '#ffc98c', '#e0701e', '#ffa24a', '#4a2508', '#6b360c'],
+    or: ['Or', '#d9b45a', '#f3d98a', '#b8862f', '#d9b45a', '#3a2d10', '#544118'],
+    rouge: ['Rouge', '#ff4d5e', '#ff9aa4', '#e0001b', '#ff4d5e', '#3c0c17', '#52111f'],
+    gris: ['Argent', '#a9b4c2', '#dfe6ee', '#5d6b7c', '#8796a8', '#2a3038', '#3a424d']
+  };
+  const WALLS = {
+    noir: ['Noir', 'none'],
+    nuit: ['Nuit', 'linear-gradient(180deg, #0a1730 0%, #0b0a0e 75%)'],
+    aube: ['Aube', 'linear-gradient(180deg, #1d2b5a 0%, #3a3f6b 45%, #6b6a5a 100%)'],
+    aurore: ['Aurore', 'radial-gradient(120% 60% at 50% 100%, #0f5a5a 0%, transparent 60%), linear-gradient(180deg, #06121f, #0a0f1a)'],
+    galaxie: ['Galaxie', 'radial-gradient(80% 50% at 20% 20%, #3a1d6b 0%, transparent 60%), radial-gradient(70% 50% at 80% 80%, #10306b 0%, transparent 60%), linear-gradient(#07060c, #07060c)'],
+    rosee: ['Rosée', 'linear-gradient(180deg, #3b1a2c 0%, #1a0f17 70%)'],
+    foret: ['Forêt', 'linear-gradient(180deg, #0e2a1c 0%, #0a120d 70%)'],
+    sable: ['Sable', 'linear-gradient(180deg, #3d2a17 0%, #16100a 75%)'],
+    ocean: ['Océan', 'linear-gradient(180deg, #06324a 0%, #041622 70%)']
+  };
+  function getTheme() {
+    let t = {};
+    try { t = JSON.parse(localStorage.getItem('queen-theme') || '{}') || {}; } catch (e) {}
+    return { c: THEMES[t.c] ? t.c : 'bleu', w: WALLS[t.w] ? t.w : 'noir' };
+  }
+  function applyTheme(t) {
+    t = t || getTheme();
+    const v = THEMES[t.c], r = document.documentElement.style;
+    [['--gold', 1], ['--gold2', 2], ['--red', 3], ['--red2', 4], ['--me', 5], ['--me2', 6]].forEach(([k, i]) => r.setProperty(k, v[i]));
+    r.setProperty('--wall', WALLS[t.w][1]);
+  }
+  function setTheme(patch) {
+    const t = Object.assign(getTheme(), patch);
+    try { localStorage.setItem('queen-theme', JSON.stringify(t)); } catch (e) {}
+    applyTheme(t);
+    return t;
+  }
+  applyTheme();
+  function themeCard() {
+    const t = getTheme();
+    const card = h('section', { class: 'card' }, h('h3', { text: 'Thème' }),
+      h('p', { class: 'hint', text: 'Choisis ta couleur et ton fond d’écran. Seul ce téléphone change.' }),
+      h('div', { class: 'swgrid' }, Object.keys(THEMES).map(k => h('button', { class: 'swatch' + (k === t.c ? ' on' : ''), type: 'button', 'aria-label': 'Couleur ' + THEMES[k][0], onclick: () => { setTheme({ c: k }); card.replaceWith(themeCard()); } },
+        h('span', { class: 'dot', style: 'background: linear-gradient(160deg, ' + THEMES[k][2] + ', ' + THEMES[k][3] + ')' }), h('span', { text: THEMES[k][0] })))),
+      h('label', { text: 'Fond de la discussion' }),
+      h('div', { class: 'wgrid' }, Object.keys(WALLS).map(k => h('button', { class: 'wall' + (k === t.w ? ' on' : ''), type: 'button', 'aria-label': 'Fond ' + WALLS[k][0], style: 'background-image: ' + WALLS[k][1], onclick: () => { setTheme({ w: k }); card.replaceWith(themeCard()); } },
+        h('i', { class: 'a' }), h('i', { class: 'b' }), h('span', { text: WALLS[k][0] })))));
+    return card;
   }
 
   // ---------- démarrage ----------
@@ -1399,7 +1453,7 @@
       if (notif.value === 'off') { await disablePush(); toast('Notifications désactivées.'); }
       else if (await enablePush(true)) toast('Notifications : ' + notif.options[notif.selectedIndex].text + '.');
     });
-    tabPage('Vous', 'me', profileCard(),
+    tabPage('Vous', 'me', profileCard(), themeCard(),
       h('section', { class: 'card' }, h('h3', { text: 'Sécurité' }),
         h('button', { class: 'rowbtn', type: 'button', onclick: () => viewSecurity() }, icon('shield'), h('span', { text: 'Code de sécurité' }), h('em', { class: verified ? 'ok' : 'warn', text: verified ? 'Vérifié' : 'À vérifier' })),
         h('label', { for: 'set-ttl', text: 'Messages éphémères (s’effacent tout seuls)' }), ttl,
