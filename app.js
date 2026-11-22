@@ -2,9 +2,11 @@
 (function () {
   'use strict';
   const C = self.QueenCrypto, S = self.QueenStore, A = self.QueenAPI;
-  const VERSION = '1.0.1';
+  const VERSION = '1.1.0';
   const root = document.getElementById('app');
   const DAY = 86400000;
+  const MAX_ABOUT = 140, MAX_STATUS_TXT = 700, MAX_STATUS_IMG = 1.2e6, MAX_AVATAR = 250000;
+  const STATUS_BG = ['#7a0f1c', '#1c3d5a', '#2f5d3a', '#5a3d7a', '#7a5a1c', '#111111'];
   const MAX_TEXT = 8000, MAX_AUDIO_S = 180, MAX_MEDIA = 4.5e6, MAX_VIDEO = 50 * 1024 * 1024;
   const KIND = { text: 'message', image: 'photo', audio: 'vocal', video: 'video' };
 
@@ -13,7 +15,7 @@
     me: null, blob: null, vault: null, pinKey: null, keys: null, settings: null,
     peer: null, keyChanged: null, msgs: new Map(), els: new Map(),
     unsub: null, timers: [], nkey: null, pulling: false, pullAgain: false, hiddenAt: 0,
-    rq: { delivered: new Set(), read: new Set() }, rqTimer: 0, rec: null, unlocked: false, flushing: false
+    rq: { delivered: new Set(), read: new Set() }, status: { mine: [], peer: [] }, tab: 'chat', rqTimer: 0, rec: null, unlocked: false, flushing: false
   };
   const uid = () => st.me && st.me.id;
 
@@ -51,6 +53,14 @@
     hang: '<svg viewBox="0 0 24 24"><path d="M12 9c-1.6 0-3.15.25-4.6.72v3.1c0 .4-.23.74-.56.9-.98.49-1.87 1.12-2.66 1.85a1 1 0 0 1-1.4-.02L.3 13.08a1 1 0 0 1 0-1.41C3.4 8.75 7.5 7 12 7s8.6 1.75 11.7 4.67a1 1 0 0 1 0 1.41l-2.48 2.47a1 1 0 0 1-1.4.02 11.3 11.3 0 0 0-2.66-1.85 1 1 0 0 1-.56-.9v-3.1A15 15 0 0 0 12 9z" fill="currentColor"/></svg>',
     micoff: '<svg viewBox="0 0 24 24"><path d="M19 11a7 7 0 0 1-1.2 3.9l-1.45-1.45A5 5 0 0 0 17 11zM15 11.2 9 5.2V5a3 3 0 0 1 6 0zM4.3 3 3 4.3l6 6V11a3 3 0 0 0 4.5 2.6l1.5 1.5A5 5 0 0 1 7 11H5a7 7 0 0 0 6 6.9V21h2v-3.1a7 7 0 0 0 3.4-1.4L19.7 21 21 19.7z" fill="currentColor"/></svg>',
     flip: '<svg viewBox="0 0 24 24"><path d="M20 5h-3.2L15 3H9L7.2 5H4a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm-8 13a5 5 0 0 1-4.9-4H5l3-3 3 3H9.1A3 3 0 0 0 15 13h2a5 5 0 0 1-5 5zm4-4-3-3h1.9A3 3 0 0 0 9 12H7a5 5 0 0 1 9.9-1H19z" fill="currentColor"/></svg>',
+    chat: '<svg viewBox="0 0 24 24"><path d="M12 3C6.5 3 2 6.9 2 11.7c0 2.4 1.1 4.6 3 6.2L4.2 22l4.4-2.2c1.1.3 2.2.5 3.4.5 5.5 0 10-3.9 10-8.6S17.5 3 12 3z" fill="currentColor"/></svg>',
+    status: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="4.2 2.6"/><circle cx="12" cy="12" r="4.2" fill="currentColor"/></svg>',
+    grid: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="2" fill="currentColor"/><rect x="13" y="3" width="8" height="8" rx="2" fill="currentColor"/><rect x="3" y="13" width="8" height="8" rx="2" fill="currentColor"/><rect x="13" y="13" width="8" height="8" rx="2" fill="currentColor"/></svg>',
+    user: '<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4.5" fill="currentColor"/><path d="M3.5 21c.6-4.3 4.1-7 8.5-7s7.9 2.7 8.5 7z" fill="currentColor"/></svg>',
+    plus: '<svg viewBox="0 0 24 24"><path d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6z" fill="currentColor"/></svg>',
+    text: '<svg viewBox="0 0 24 24"><path d="M5 4h14v3h-2V6h-4v12h2v2H9v-2h2V6H7v1H5z" fill="currentColor"/></svg>',
+    eye: '<svg viewBox="0 0 24 24"><path d="M12 5C6.5 5 2.7 9.4 1.5 12c1.2 2.6 5 7 10.5 7s9.3-4.4 10.5-7C21.3 9.4 17.5 5 12 5zm0 11a4 4 0 1 1 0-8 4 4 0 0 1 0 8z" fill="currentColor"/></svg>',
+    trash: '<svg viewBox="0 0 24 24"><path d="M9 3h6l1 2h4v2H4V5h4zM6 9h12l-1 12H7z" fill="currentColor"/></svg>',
     timer: '<svg viewBox="0 0 16 16"><path d="M6 1h4M8 5v3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="8" cy="9.5" r="5.5" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>'
   };
   const icon = (name, cls) => { const s = h('span', { class: 'ic ' + (cls || ''), 'aria-hidden': 'true' }); s.innerHTML = ICON[name]; return s; };
@@ -272,6 +282,7 @@
     if (!fresh) st.settings = await loadSettings();
     await saveSettings();
     await loadLocal();
+    await loadStatus();
     st.unlocked = true;
     viewChat();
     purgeExpired();
@@ -286,6 +297,7 @@
     await refreshPeer();
     await pullInbox();
     flushOutbox();
+    shareProfileIfNeeded();
     if ((await notifMode()) !== 'off') enablePush(false);
     if (!st.unsub) { try { st.unsub = A.subscribe(uid(), () => pullInbox()); } catch (e) {} }
     if (!st.timers.length) {
@@ -301,7 +313,7 @@
     if (st.unsub) { st.unsub(); st.unsub = null; }
     st.timers.forEach(clearInterval); st.timers = [];
     st.vault = st.pinKey = st.keys = null; st.unlocked = false;
-    st.msgs = new Map(); st.els = new Map(); st.peer = null;
+    st.msgs = new Map(); st.els = new Map(); st.peer = null; st.status = { mine: [], peer: [] };
     document.querySelectorAll('.modal,.viewer').forEach(m => m.remove());
     if (!silent && st.me && st.blob) viewUnlock(st.blob);
   }
@@ -328,7 +340,7 @@
     if (m && m.body && m.body.mid) await S.del('media', m.body.mid).catch(() => {});
     st.msgs.delete(id); st.els.delete(id); await S.del('msgs', id);
   }
-  async function addSystem(text) { await saveMsg({ id: C.randId(), from: 'sys', t: 'sys', body: text, ts: Date.now() }); renderList(); }
+  async function addSystem(text) { await saveMsg({ id: C.randId(), from: 'sys', t: 'sys', body: text, ts: Date.now() }); renderList(); if (st.tab === 'calls' && !call.active && !document.querySelector('.call')) viewCalls(); }
 
   // ---------- clé de ma moitié ----------
   async function refreshPeer() {
@@ -451,6 +463,25 @@
     } else if (p.t === 'del' && typeof p.id === 'string') {
       const m = st.msgs.get(p.id);
       if (m && m.from === 'peer') { if (m.body && m.body.mid) await S.del('media', m.body.mid).catch(() => {}); m.deleted = true; m.body = null; await saveMsg(m); renderList(); }
+    } else if (p.t === 'profile') {
+      if (p.photo === null || okAvatar(p.photo)) st.settings.peerPhoto = p.photo || null;
+      if (typeof p.about === 'string') st.settings.peerAbout = p.about.slice(0, MAX_ABOUT);
+      await saveSettings(); renderHeader(); refreshTab();
+    } else if (p.t === 'status' && typeof p.sid === 'string' && p.sid.length <= 40) {
+      const ts = Math.min(Number(p.ts) || Date.now(), Date.now());
+      const ok = p.kind === 'image' ? okData(p.data, 'image') && p.data.length <= MAX_STATUS_IMG * 1.4
+        : p.kind === 'text' && typeof p.text === 'string' && p.text.trim().length > 0;
+      if (ok && ts > Date.now() - DAY && !st.status.peer.some(x => x.sid === p.sid)) {
+        st.status.peer.push({ sid: p.sid, kind: p.kind, data: p.kind === 'image' ? p.data : null, text: p.kind === 'text' ? p.text.slice(0, MAX_STATUS_TXT) : (typeof p.text === 'string' ? p.text.slice(0, 200) : ''), bg: (Number(p.bg) | 0) % STATUS_BG.length, ts, seen: false });
+        if (st.status.peer.length > 30) st.status.peer.splice(0, st.status.peer.length - 30);
+        await saveStatus(); renderHeader(); refreshTab();
+      }
+    } else if (p.t === 'status-del' && typeof p.sid === 'string') {
+      const n = st.status.peer.length; st.status.peer = st.status.peer.filter(x => x.sid !== p.sid);
+      if (n !== st.status.peer.length) { await saveStatus(); renderHeader(); refreshTab(); }
+    } else if (p.t === 'status-seen' && typeof p.sid === 'string') {
+      const x = st.status.mine.find(y => y.sid === p.sid);
+      if (x && !x.seenAt) { x.seenAt = Date.now(); await saveStatus(); refreshTab(); }
     } else if (p.t === 'ttl' && TTL_LABEL[p.ttl] !== undefined) {
       st.settings.ttl = p.ttl; await saveSettings();
       await addSystem(peerName() + (p.ttl ? ' a activé les messages éphémères : ' + TTL_LABEL[p.ttl] + '.' : ' a désactivé les messages éphémères.'));
@@ -506,6 +537,7 @@
     setBadge(0); clearNotifs();
   }
   function notifyNew() {
+    if (st.tab !== 'chat') refreshTab();
     if (document.visibilityState === 'visible') return markRead();
     const n = [...st.msgs.values()].filter(m => m.from === 'peer' && m.status === 'recu').length;
     setBadge(n);
@@ -633,8 +665,9 @@
     bannerEl = h('div', { class: 'banners' });
     listEl = h('div', { class: 'list', role: 'log', 'aria-live': 'polite' });
     composerEl = buildComposer();
-    screen(h('div', { class: 'chat' }, headEl, bannerEl, listEl, composerEl));
-    renderHeader(); renderList(true);
+    st.tab = 'chat';
+    screen(h('div', { class: 'chat tabbed' }, headEl, bannerEl, listEl, composerEl, tabbar('chat')));
+    renderHeader(); renderList(true); markRead();
   }
 
   function renderHeader() {
@@ -642,14 +675,13 @@
     const verified = st.settings.peerPin && st.settings.peerPin.verified && !st.keyChanged;
     const hasPeer = st.peer || st.settings.peerBundle;
     headEl.replaceChildren(
-      h('img', { src: 'icons/logo-512.png', alt: '', class: 'avatar', width: '40', height: '40' }),
-      h('button', { class: 'who', type: 'button', onclick: viewSettings },
+      avatarBtn(),
+      h('button', { class: 'who', type: 'button', onclick: viewPeerProfile },
         h('strong', { text: hasPeer ? peerName() : 'The Queen' }),
         h('small', { class: verified ? 'ok' : '' }, icon('lock', 'tiny'), verified ? ' Chiffré · code vérifié' : ' Chiffré de bout en bout')),
       btnIcon('phone', 'Appel vocal', () => startCall(false)),
       btnIcon('video', 'Appel vidéo', () => startCall(true)),
-      btnIcon('lock', 'Verrouiller', () => lock()),
-      btnIcon('menu', 'Réglages', viewSettings));
+      btnIcon('lock', 'Verrouiller', () => lock()));
     bannerEl.replaceChildren();
     if (st.keyChanged) {
       bannerEl.append(h('div', { class: 'banner danger' },
@@ -661,7 +693,7 @@
       bannerEl.append(h('div', { class: 'banner' }, h('p', { text: 'Ta moitié n’a pas encore créé son compte. Dès que c’est fait, vous pourrez vous écrire.' })));
     } else if (!verified) {
       bannerEl.append(h('button', { class: 'banner gold', type: 'button', onclick: () => viewSecurity() },
-        icon('shield'), h('span', { text: 'Comparez une fois vos codes de sécurité, côte à côte. Touchez ici.' })));
+        icon('shield'), h('span', { text: 'Comparez une fois vos codes de sécurité (en appel vidéo, lisez les chiffres). Touchez ici.' })));
     }
     if (hasPeer && !st.keyChanged && pushSupported() && Notification.permission === 'default' && !st.pushAsked) {
       bannerEl.append(h('button', { class: 'banner gold', type: 'button', onclick: async () => { st.pushAsked = true; if (await enablePush(true)) toast('Notifications activées.'); renderHeader(); } },
@@ -1089,11 +1121,268 @@
     const now = Date.now(); let n = 0;
     for (const m of [...st.msgs.values()]) if (m.exp && m.exp < now) { await dropMsg(m.id); n++; }
     if (n) renderList();
+    if (pruneStatus()) { await saveStatus(); refreshTab(); }
+  }
+
+  // ---------- barre du bas, statut, appels, médias, profil ----------
+  const TABS = [['status', 'Statut', 'status'], ['calls', 'Appels', 'phone'], ['media', 'Médias', 'grid'], ['chat', 'Discussion', 'chat'], ['me', 'Vous', 'user']];
+  function tabbar(active) {
+    const unread = [...st.msgs.values()].filter(m => m.from === 'peer' && m.status === 'recu').length;
+    const newStatus = st.status.peer.some(x => !x.seen);
+    return h('nav', { class: 'tabbar', 'aria-label': 'Navigation' }, TABS.map(([id, label, ic]) => {
+      let ico = icon(ic, 'tabic');
+      if (id === 'me' && st.settings.myPhoto) ico = h('img', { class: 'tabav', src: st.settings.myPhoto, alt: '' });
+      const badge = id === 'chat' && unread && active !== 'chat' ? h('span', { class: 'tbadge', text: unread > 99 ? '99+' : String(unread) })
+        : id === 'status' && newStatus ? h('span', { class: 'tdot' }) : null;
+      return h('button', { class: 'tab' + (id === active ? ' on' : ''), type: 'button', 'aria-label': label, 'aria-current': id === active ? 'page' : null, onclick: () => openTab(id) },
+        h('span', { class: 'tpill' }, ico, badge), h('span', { class: 'tlabel', text: label }));
+    }));
+  }
+  function openTab(id) {
+    ({ status: viewStatus, calls: viewCalls, media: viewMedia, chat: viewChat, me: viewSettings })[id]();
+  }
+  function refreshTab() {
+    if (!st.unlocked) return;
+    if (st.tab === 'status' && !document.querySelector('.story')) viewStatus();
+    else if (st.tab === 'me' && document.querySelector('.tabbed')) { const nav = document.querySelector('.tabbar'); if (nav) nav.replaceWith(tabbar('me')); }
+    else { const nav = document.querySelector('.tabbar'); if (nav) nav.replaceWith(tabbar(st.tab)); }
+  }
+  function tabPage(title, id, ...body) {
+    st.tab = id;
+    screen(h('div', { class: 'panel tabbed' }, h('header', { class: 'bar' }, h('strong', { class: 'ptitle big', text: title })),
+      h('div', { class: 'pbody' }, ...body), tabbar(id)));
+  }
+  function avatarImg(src, cls, ring) {
+    const img = h('img', { src: src || 'icons/logo-512.png', alt: '', class: 'avatar ' + (cls || '') });
+    return ring ? h('span', { class: 'ring ' + ring }, img) : img;
+  }
+  function avatarBtn() {
+    const active = st.status.peer.length, unseen = st.status.peer.some(x => !x.seen);
+    const b = h('button', { class: 'avbtn', type: 'button', 'aria-label': active ? 'Voir son statut' : 'Voir son profil',
+      onclick: () => active ? openStories(st.status.peer, true) : viewPeerProfile() },
+      avatarImg(st.settings.peerPhoto, '', active ? (unseen ? 'new' : 'seen') : ''));
+    return b;
+  }
+
+  const okAvatar = v => typeof v === 'string' && v.length <= MAX_AVATAR * 1.4 && /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(v);
+  function squareImage(f, size, maxLen) {
+    return new Promise((res, rej) => {
+      const url = URL.createObjectURL(f); const img = new Image();
+      img.onload = () => {
+        const s = Math.min(img.naturalWidth, img.naturalHeight), c = document.createElement('canvas');
+        c.width = c.height = Math.min(size, s);
+        c.getContext('2d').drawImage(img, (img.naturalWidth - s) / 2, (img.naturalHeight - s) / 2, s, s, 0, 0, c.width, c.height);
+        URL.revokeObjectURL(url);
+        let q = 0.85, out = c.toDataURL('image/jpeg', q);
+        while (out.length > maxLen && q > 0.4) { q -= 0.1; out = c.toDataURL('image/jpeg', q); }
+        out.length > maxLen ? rej(new Error('trop grande')) : res(out);
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); rej(new Error('image')); };
+      img.src = url;
+    });
+  }
+  function fitImage(f, max, maxLen) {
+    return new Promise((res, rej) => {
+      const url = URL.createObjectURL(f); const img = new Image();
+      img.onload = () => {
+        const k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight)), c = document.createElement('canvas');
+        c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url);
+        let q = 0.8, out = c.toDataURL('image/jpeg', q);
+        while (out.length > maxLen && q > 0.35) { q -= 0.1; out = c.toDataURL('image/jpeg', q); }
+        out.length > maxLen ? rej(new Error('trop grande')) : res(out);
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); rej(new Error('image')); };
+      img.src = url;
+    });
+  }
+  function pickFile(accept) {
+    return new Promise(res => {
+      const f = h('input', { type: 'file', accept, hidden: true });
+      f.addEventListener('change', () => { res(f.files && f.files[0] || null); f.remove(); });
+      document.body.append(f); f.click();
+    });
+  }
+
+  // profil : partagé chiffré, une fois par clé de ta moitié
+  async function shareProfile() {
+    const ok = await sendControl({ t: 'profile', photo: st.settings.myPhoto || null, about: st.settings.about || '' });
+    if (ok && st.peer) { st.settings.profileSentFor = st.peer.sign_pub; await saveSettings(); }
+    return ok;
+  }
+  function shareProfileIfNeeded() {
+    if (st.peer && !st.keyChanged && (st.settings.myPhoto || st.settings.about) && st.settings.profileSentFor !== st.peer.sign_pub) shareProfile();
+  }
+  function profileCard() {
+    const about = h('input', { id: 'set-about', type: 'text', maxlength: String(MAX_ABOUT), value: st.settings.about || '', placeholder: 'Ex. : Toujours à toi ❤️' });
+    const photo = h('button', { class: 'bigav', type: 'button', 'aria-label': 'Changer ma photo de profil', onclick: async () => {
+      const f = await pickFile('image/*'); if (!f) return;
+      try { st.settings.myPhoto = await squareImage(f, 480, MAX_AVATAR); } catch (e) { return toast('Photo impossible à utiliser.'); }
+      await saveSettings(); viewSettings();
+      toast((await shareProfile()) ? 'Photo envoyée à ' + peerName() + ', chiffrée.' : 'Photo enregistrée. Elle partira dès que possible.');
+    } }, avatarImg(st.settings.myPhoto, 'xl'), h('span', { class: 'camdot' }, icon('cam', 'tiny')));
+    return h('section', { class: 'card profile' }, photo,
+      h('strong', { class: 'pname', text: st.settings.nom || 'Moi' }),
+      h('small', { class: 'muted', text: st.me ? st.me.email : '' }),
+      h('label', { for: 'set-about', text: 'Infos (vues par ta moitié)' }), about,
+      h('div', { class: 'row' },
+        h('button', { class: 'btn gold', type: 'button', text: 'Enregistrer', onclick: async () => {
+          st.settings.about = about.value.trim().slice(0, MAX_ABOUT); await saveSettings();
+          toast((await shareProfile()) ? 'Infos envoyées.' : 'Enregistré. Envoi dès le retour d’internet.');
+        } }),
+        st.settings.myPhoto ? h('button', { class: 'btn', type: 'button', text: 'Retirer la photo', onclick: async () => {
+          st.settings.myPhoto = null; await saveSettings(); await shareProfile(); viewSettings();
+        } }) : null));
+  }
+  function viewPeerProfile() {
+    const hasPeer = st.peer || st.settings.peerBundle;
+    const pic = st.settings.peerPhoto;
+    st.tab = st.tab || 'chat';
+    panel(peerName(),
+      h('section', { class: 'card profile' },
+        h('button', { class: 'bigav', type: 'button', 'aria-label': 'Agrandir la photo', onclick: () => pic && openViewer(pic) }, avatarImg(pic, 'xl', st.status.peer.length ? (st.status.peer.some(x => !x.seen) ? 'new' : 'seen') : '')),
+        h('strong', { class: 'pname', text: peerName() }),
+        h('p', { class: 'about', text: st.settings.peerAbout || (hasPeer ? 'Pas encore d’infos.' : 'Pas encore de compte.') }),
+        h('div', { class: 'row center' },
+          btnIcon('chat', 'Écrire', viewChat, 'round'), btnIcon('phone', 'Appel vocal', () => { viewChat(); startCall(false); }, 'round'),
+          btnIcon('video', 'Appel vidéo', () => { viewChat(); startCall(true); }, 'round'))),
+      st.status.peer.length ? h('button', { class: 'rowbtn', type: 'button', onclick: () => openStories(st.status.peer, true) }, icon('status'), h('span', { text: 'Voir son statut (' + st.status.peer.length + ')' })) : null,
+      h('button', { class: 'rowbtn', type: 'button', onclick: () => viewSecurity() }, icon('shield'), h('span', { text: 'Code de sécurité' })));
+  }
+
+  // statut : 24 h, chiffré de bout en bout comme les messages
+  async function loadStatus() {
+    st.status = { mine: [], peer: [] };
+    const box = await S.get('kv', 'status:' + uid()).catch(() => null);
+    if (box) { try { const v = await C.localOpen(st.keys.db, box); if (v && Array.isArray(v.mine) && Array.isArray(v.peer)) st.status = v; } catch (e) {} }
+    if (pruneStatus()) await saveStatus();
+  }
+  async function saveStatus() { if (st.keys) await S.put('kv', 'status:' + uid(), await C.localSeal(st.keys.db, st.status)); }
+  function pruneStatus() {
+    const lim = Date.now() - DAY, a = st.status.mine.length + st.status.peer.length;
+    st.status.mine = st.status.mine.filter(x => x.ts > lim); st.status.peer = st.status.peer.filter(x => x.ts > lim);
+    return a !== st.status.mine.length + st.status.peer.length;
+  }
+  const ago = ts => { const m = Math.round((Date.now() - ts) / 60000); return m < 1 ? 'à l’instant' : m < 60 ? 'il y a ' + m + ' min' : 'il y a ' + Math.round(m / 60) + ' h'; };
+  async function postStatus(item) {
+    if (!st.peer || st.keyChanged) return toast('Ta moitié n’a pas encore de compte : le statut ne peut pas partir.');
+    const x = Object.assign({ sid: C.randId(), ts: Date.now(), seenAt: 0 }, item);
+    const ok = await sendControl({ t: 'status', sid: x.sid, kind: x.kind, data: x.data || undefined, text: x.text || '', bg: x.bg || 0, ts: x.ts });
+    if (!ok) return toast('Pas de connexion : statut non envoyé.');
+    st.status.mine.push(x); await saveStatus(); viewStatus(); toast('Statut publié pour 24 h.');
+  }
+  function viewStatus() {
+    pruneStatus();
+    const mine = st.status.mine, peer = st.status.peer, last = a => a[a.length - 1];
+    const addPhoto = async () => {
+      const f = await pickFile('image/*'); if (!f) return;
+      let data; try { data = await fitImage(f, 1280, MAX_STATUS_IMG); } catch (e) { return toast('Photo trop lourde.'); }
+      const cap = await askText('Ajouter une légende ?', 'Légende (facultatif)', 200);
+      if (cap === null) return;
+      postStatus({ kind: 'image', data, text: cap });
+    };
+    const addText = () => composeTextStatus();
+    tabPage('Statut', 'status',
+      h('section', { class: 'card' },
+        h('div', { class: 'srow' },
+          h('button', { class: 'avbtn', type: 'button', 'aria-label': mine.length ? 'Voir mon statut' : 'Ajouter un statut', onclick: () => mine.length ? openStories(mine, false) : addPhoto() },
+            avatarImg(st.settings.myPhoto, 'md', mine.length ? 'seen' : ''), mine.length ? null : h('span', { class: 'plusdot' }, icon('plus', 'tiny'))),
+          h('div', { class: 'stext' }, h('strong', { text: 'Mon statut' }),
+            h('small', { class: 'muted', text: mine.length ? mine.length + ' publié' + (mine.length > 1 ? 's' : '') + ' · ' + ago(last(mine).ts) : 'Partage une photo ou un texte pendant 24 h' }))),
+        h('div', { class: 'row' },
+          h('button', { class: 'btn gold', type: 'button', onclick: addPhoto }, icon('cam', 'tiny'), ' Photo'),
+          h('button', { class: 'btn', type: 'button', onclick: addText }, icon('text', 'tiny'), ' Texte'))),
+      mine.length ? h('section', { class: 'card' }, h('h3', { text: 'Mes statuts' }),
+        [...mine].reverse().map(x => h('div', { class: 'srow' },
+          h('button', { class: 'thumb', type: 'button', 'aria-label': 'Voir', onclick: () => openStories([x], false), style: x.kind === 'text' ? 'background:' + STATUS_BG[x.bg | 0] : '' },
+            x.kind === 'image' ? h('img', { src: x.data, alt: '' }) : h('span', { text: x.text.slice(0, 12) })),
+          h('div', { class: 'stext' }, h('strong', { text: ago(x.ts) }),
+            h('small', { class: x.seenAt ? 'ok' : 'muted' }, icon('eye', 'tiny'), x.seenAt ? ' Vu par ' + peerName() : ' Pas encore vu')),
+          btnIcon('trash', 'Supprimer ce statut', async () => {
+            st.status.mine = st.status.mine.filter(y => y.sid !== x.sid); await saveStatus();
+            sendControl({ t: 'status-del', sid: x.sid }); viewStatus();
+          })))) : null,
+      h('section', { class: 'card' }, h('h3', { text: 'Récents' }),
+        peer.length ? h('button', { class: 'srow plain', type: 'button', onclick: () => openStories(peer, true) },
+          avatarImg(st.settings.peerPhoto, 'md', peer.some(x => !x.seen) ? 'new' : 'seen'),
+          h('div', { class: 'stext' }, h('strong', { text: peerName() }), h('small', { class: 'muted', text: ago(last(peer).ts) })))
+          : h('p', { class: 'muted', text: 'Aucun statut de ' + peerName() + ' pour le moment.' })),
+      h('p', { class: 'note small' }, icon('lock', 'tiny'), ' Vos statuts sont chiffrés de bout en bout et disparaissent après 24 h.'));
+  }
+  function askText(title, placeholder, max) {
+    return new Promise(res => {
+      const inp = h('input', { type: 'text', maxlength: String(max), placeholder });
+      const close = v => { m.remove(); res(v); };
+      const m = h('div', { class: 'modal', role: 'dialog' }, h('div', { class: 'sheet' }, h('h3', { text: title }), inp,
+        h('div', { class: 'row' }, h('button', { class: 'btn', type: 'button', text: 'Annuler', onclick: () => close(null) }),
+          h('button', { class: 'btn gold', type: 'button', text: 'Publier', onclick: () => close(inp.value.trim()) }))));
+      document.body.append(m); setTimeout(() => inp.focus(), 50);
+    });
+  }
+  function composeTextStatus() {
+    let bg = 0;
+    const ta = h('textarea', { class: 'stxt', maxlength: String(MAX_STATUS_TXT), placeholder: 'Écris ton statut…', 'aria-label': 'Texte du statut' });
+    const close = () => ov.remove();
+    const ov = h('div', { class: 'story compose', style: 'background:' + STATUS_BG[0] },
+      h('div', { class: 'stop' }, btnIcon('x', 'Fermer', close, 'light'),
+        h('div', { class: 'swatches' }, STATUS_BG.map((c, i) => h('button', { class: 'sw', type: 'button', 'aria-label': 'Couleur ' + (i + 1), style: 'background:' + c, onclick: () => { bg = i; ov.style.background = c; } })))),
+      ta,
+      h('button', { class: 'ibtn send big', type: 'button', 'aria-label': 'Publier le statut', onclick: () => { const t = ta.value.trim(); if (!t) return; close(); postStatus({ kind: 'text', text: t, bg }); } }, icon('send')));
+    document.body.append(ov); setTimeout(() => ta.focus(), 50);
+  }
+  function openStories(list, isPeer) {
+    if (!list.length) return;
+    let i = isPeer ? Math.max(0, list.findIndex(x => !x.seen)) : 0, t = 0;
+    const bars = h('div', { class: 'sbars' }), stage = h('div', { class: 'sstage' }), cap = h('p', { class: 'scap' });
+    const who = h('div', { class: 'swho' }, avatarImg(isPeer ? st.settings.peerPhoto : st.settings.myPhoto, 'sm'), h('div', {}, h('strong', { text: isPeer ? peerName() : 'Mon statut' }), h('small', { class: 'stime' })));
+    const ov = h('div', { class: 'story', role: 'dialog', 'aria-label': 'Statut' }, bars, h('div', { class: 'stop' }, who, btnIcon('x', 'Fermer', () => done(), 'light')), stage, cap);
+    const done = () => { clearTimeout(t); ov.remove(); if (st.tab === 'status') viewStatus(); else renderHeader(); };
+    const show = () => {
+      clearTimeout(t);
+      if (i < 0) i = 0; if (i >= list.length) return done();
+      const x = list[i];
+      bars.replaceChildren(...list.map((_, k) => h('span', { class: k < i ? 'done' : k === i ? 'cur' : '' })));
+      ov.style.background = x.kind === 'text' ? STATUS_BG[x.bg | 0] : '#000';
+      stage.replaceChildren(x.kind === 'image' ? h('img', { src: x.data, alt: 'Statut' }) : h('p', { class: 'sbig', text: x.text }));
+      cap.textContent = x.kind === 'image' ? (x.text || '') : '';
+      who.querySelector('.stime').textContent = ago(x.ts);
+      if (isPeer && !x.seen) { x.seen = true; saveStatus(); sendControl({ t: 'status-seen', sid: x.sid }); }
+      t = setTimeout(() => { i++; show(); }, 6000);
+    };
+    ov.addEventListener('click', e => { if (e.target.closest('.stop')) return; const r = ov.getBoundingClientRect(); i += (e.clientX - r.left) < r.width / 3 ? -1 : 1; show(); });
+    document.body.append(ov); show();
+  }
+
+  function viewCalls() {
+    const log = [...st.msgs.values()].filter(m => m.from === 'sys' && /^Appel (vocal|vidéo)/.test(m.body || '')).sort((a, b) => b.ts - a.ts).slice(0, 100);
+    tabPage('Appels', 'calls',
+      h('section', { class: 'card' },
+        h('div', { class: 'srow' }, avatarImg(st.settings.peerPhoto, 'md'), h('div', { class: 'stext' }, h('strong', { text: peerName() }), h('small', { class: 'muted' }, icon('lock', 'tiny'), ' Appels chiffrés de bout en bout'))),
+        h('div', { class: 'row' },
+          h('button', { class: 'btn gold', type: 'button', onclick: () => { viewChat(); startCall(false); } }, icon('phone', 'tiny'), ' Appel vocal'),
+          h('button', { class: 'btn gold', type: 'button', onclick: () => { viewChat(); startCall(true); } }, icon('video', 'tiny'), ' Appel vidéo'))),
+      h('section', { class: 'card' }, h('h3', { text: 'Récents' }),
+        log.length ? log.map(m => {
+          const bad = /manqué|refusé|sans réponse/.test(m.body);
+          return h('div', { class: 'crow' }, icon(/vidéo/.test(m.body) ? 'video' : 'phone', bad ? 'bad' : ''),
+            h('div', { class: 'stext' }, h('strong', { class: bad ? 'bad' : '', text: m.body.split(' · ')[0] }), h('small', { class: 'muted', text: fmtDay(m.ts) + ' · ' + fmtTime(m.ts) + (/ · \d+ ?min|\d+ s$/.test(m.body) ? ' · ' + m.body.split(' · ')[1] : '') })),
+            btnIcon(/vidéo/.test(m.body) ? 'video' : 'phone', 'Rappeler', () => { viewChat(); startCall(/vidéo/.test(m.body)); }));
+        }) : h('p', { class: 'muted', text: 'Aucun appel pour le moment.' })));
+  }
+
+  function viewMedia() {
+    const items = [...st.msgs.values()].filter(m => !m.deleted && m.body && (m.t === 'image' || m.t === 'video')).sort((a, b) => b.ts - a.ts);
+    tabPage('Médias', 'media',
+      items.length ? h('div', { class: 'mgrid' }, items.map(m => m.t === 'image'
+        ? h('button', { class: 'mcell', type: 'button', 'aria-label': 'Photo', onclick: () => openViewer(m.body.data) }, h('img', { src: m.body.data, alt: '', loading: 'lazy' }))
+        : h('button', { class: 'mcell', type: 'button', 'aria-label': 'Vidéo', onclick: () => openVideo(m) }, m.body.thumb ? h('img', { src: m.body.thumb, alt: '' }) : null, icon('play', 'playic'))))
+        : h('div', { class: 'empty' }, icon('grid'), h('p', { text: 'Les photos et vidéos que vous vous envoyez apparaîtront ici.' })),
+      h('p', { class: 'note small' }, icon('lock', 'tiny'), ' Gardées seulement sur ce téléphone, chiffrées par ton code.'));
   }
 
   // ---------- réglages ----------
   function panel(title, ...body) {
-    const back = btnIcon('back', 'Retour', () => { viewChat(); });
+    const back = btnIcon('back', 'Retour', () => { st.tab === 'me' ? viewSettings() : viewChat(); });
     screen(h('div', { class: 'panel' }, h('header', { class: 'bar' }, back, h('strong', { class: 'ptitle', text: title })), h('div', { class: 'pbody' }, ...body)));
   }
 
@@ -1110,7 +1399,7 @@
       if (notif.value === 'off') { await disablePush(); toast('Notifications désactivées.'); }
       else if (await enablePush(true)) toast('Notifications : ' + notif.options[notif.selectedIndex].text + '.');
     });
-    panel('Réglages',
+    tabPage('Vous', 'me', profileCard(),
       h('section', { class: 'card' }, h('h3', { text: 'Sécurité' }),
         h('button', { class: 'rowbtn', type: 'button', onclick: () => viewSecurity() }, icon('shield'), h('span', { text: 'Code de sécurité' }), h('em', { class: verified ? 'ok' : 'warn', text: verified ? 'Vérifié' : 'À vérifier' })),
         h('label', { for: 'set-ttl', text: 'Messages éphémères (s’effacent tout seuls)' }), ttl,
@@ -1164,7 +1453,7 @@
     const verified = !otherRow && st.settings.peerPin && st.settings.peerPin.verified;
     panel('Code de sécurité',
       h('section', { class: 'card center-text' },
-        h('p', { text: 'Mettez vos deux téléphones côte à côte. Ce code doit être exactement le même chez toi et chez ' + (st.settings.peerNick || peer.nom || 'ta moitié') + '.' }),
+        h('p', { text: 'Ensemble, ou en appel vidéo en lisant les chiffres à voix haute. Ce code doit être exactement le même chez toi et chez ' + (st.settings.peerNick || peer.nom || 'ta moitié') + '.' }),
         h('div', { class: 'safety', 'aria-label': 'Code de sécurité' }, groups.map(g => h('span', { text: g }))),
         verified ? h('p', { class: 'ok', text: 'Vous avez déjà vérifié ce code.' }) : null,
         !otherRow ? h('div', { class: 'col' },

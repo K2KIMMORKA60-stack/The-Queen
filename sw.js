@@ -1,6 +1,6 @@
 // The Queen : service de l'appli (démarrage rapide + notifications).
 // Les messages ne passent jamais par ce cache.
-const VERSION = 'queen-v3';
+const VERSION = 'queen-v4';
 const SHELL = ['./', 'index.html', 'style.css', 'app.js', 'crypto.js', 'store.js', 'api.js', 'config.js', 'vendor/supabase.js',
   'manifest.webmanifest', 'icons/logo-512.png', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png', 'icons/favicon-32.png', 'icons/badge-96.png'];
 
