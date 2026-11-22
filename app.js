@@ -2,11 +2,11 @@
 (function () {
   'use strict';
   const C = self.QueenCrypto, S = self.QueenStore, A = self.QueenAPI;
-  const VERSION = '1.1.0';
+  const VERSION = '1.1.1';
   const root = document.getElementById('app');
   const DAY = 86400000;
   const MAX_ABOUT = 140, MAX_STATUS_TXT = 700, MAX_STATUS_IMG = 1.2e6, MAX_AVATAR = 250000;
-  const STATUS_BG = ['#7a0f1c', '#1c3d5a', '#2f5d3a', '#5a3d7a', '#7a5a1c', '#111111'];
+  const STATUS_BG = ['#0f3a73', '#1c3d5a', '#2f5d3a', '#5a3d7a', '#7a5a1c', '#111111'];
   const MAX_TEXT = 8000, MAX_AUDIO_S = 180, MAX_MEDIA = 4.5e6, MAX_VIDEO = 50 * 1024 * 1024;
   const KIND = { text: 'message', image: 'photo', audio: 'vocal', video: 'video' };
 
