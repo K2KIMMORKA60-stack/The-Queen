@@ -2,7 +2,7 @@
 (function () {
   'use strict';
   const C = self.QueenCrypto, S = self.QueenStore, A = self.QueenAPI;
-  const VERSION = '1.0.0';
+  const VERSION = '1.0.1';
   const root = document.getElementById('app');
   const DAY = 86400000;
   const MAX_TEXT = 8000, MAX_AUDIO_S = 180, MAX_MEDIA = 4.5e6, MAX_VIDEO = 50 * 1024 * 1024;
@@ -62,7 +62,7 @@
     t.textContent = msg; t.hidden = false;
     clearTimeout(toastT); toastT = setTimeout(() => { t.hidden = true; }, 3200);
   }
-  function screen(...kids) { root.replaceChildren(...kids); }
+  function screen(...kids) { root.replaceChildren(...kids.filter(k => k != null && k !== false)); }
   function ask(title, text, buttons) {
     return new Promise(res => {
       const close = v => { m.remove(); res(v); };
@@ -646,8 +646,8 @@
       h('button', { class: 'who', type: 'button', onclick: viewSettings },
         h('strong', { text: hasPeer ? peerName() : 'The Queen' }),
         h('small', { class: verified ? 'ok' : '' }, icon('lock', 'tiny'), verified ? ' Chiffré · code vérifié' : ' Chiffré de bout en bout')),
-      hasPeer && !st.keyChanged ? btnIcon('phone', 'Appel vocal', () => startCall(false)) : null,
-      hasPeer && !st.keyChanged ? btnIcon('video', 'Appel vidéo', () => startCall(true)) : null,
+      btnIcon('phone', 'Appel vocal', () => startCall(false)),
+      btnIcon('video', 'Appel vidéo', () => startCall(true)),
       btnIcon('lock', 'Verrouiller', () => lock()),
       btnIcon('menu', 'Réglages', viewSettings));
     bannerEl.replaceChildren();
@@ -970,6 +970,7 @@
 
   async function startCall(video) {
     if (call.active || call.incoming) return;
+    if (!st.peer && !st.keyChanged) return toast('Ta moitié n’a pas encore créé son compte. Les appels marcheront dès que ce sera fait.');
     if (!st.peer || st.keyChanged) return toast('Appel impossible pour le moment.');
     if (!online()) return toast('Pas de connexion internet.');
     if (!window.RTCPeerConnection || !navigator.mediaDevices) return toast('Les appels ne sont pas possibles sur ce navigateur.');
