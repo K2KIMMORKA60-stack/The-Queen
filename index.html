@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,interactive-widget=resizes-content">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' data: blob:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<title>The Queen</title>
+<meta name="description" content="Messagerie privée, chiffrée de bout en bout, pour deux.">
+<meta name="theme-color" content="#0b0a0e">
+<meta name="color-scheme" content="dark">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/favicon-32.png" sizes="32x32">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="The Queen">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="format-detection" content="telephone=no">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main id="app"><div class="page center"><p class="note">Ouverture…</p></div></main>
+<div class="toast" id="toast" role="status" hidden></div>
+<noscript>Active JavaScript pour utiliser The Queen.</noscript>
+<script src="vendor/supabase.js"></script>
+<script src="config.js"></script>
+<script src="crypto.js"></script>
+<script src="store.js"></script>
+<script src="api.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
