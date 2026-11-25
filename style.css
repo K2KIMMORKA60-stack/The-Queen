@@ -65,6 +65,9 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline: non
 .who strong { font-family: var(--serif); font-weight: 400; font-size: 21px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .who small { color: var(--muted); font-size: 12px; }
 .who small.ok { color: var(--gold); }
+.who small.pres { color: var(--muted); }
+.who small.pres.on, .who small.pres.typing { color: var(--gold2); }
+.who small.pres.typing { font-style: italic; }
 .banners { display: flex; flex-direction: column; }
 .banner { margin: 8px 10px 0; padding: 10px 12px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line); font-size: 14px; text-align: left; display: flex; gap: 10px; align-items: center; color: var(--text); }
 .banner p { margin: 0; }

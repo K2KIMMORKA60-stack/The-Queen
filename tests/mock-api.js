@@ -26,6 +26,12 @@
     async removeFile(path) { return post('rmfile', { path }); },
     async inbox(me) { return post('inbox', { me }); },
     async remove(id) { return post('remove', { id }); },
+    presence(room, onMsg) {
+      const me = Math.random().toString(36).slice(2); let since = 0, live = true;
+      const tick = async () => { if (!live) return; try { const r = await post('presget', { room, me, since }); for (const x of r) { since = Math.max(since, x.n); onMsg(x.d); } } catch (e) {} if (live) setTimeout(tick, 300); };
+      post('presget', { room, me, since: -1 }).then(n => { since = n; tick(); }).catch(() => tick());
+      return { send(d) { post('pres', { room, me, d }).catch(() => {}); }, close() { live = false; } };
+    },
     subscribe(me, cb) { const t = setInterval(() => cb({}), 800); return () => clearInterval(t); }
   };
 })(self);

@@ -153,6 +153,28 @@ const wait = (pg, fn, arg, t = 15000) => pg.waitForFunction(fn, arg, { timeout: 
   await A.click('button[aria-label=Discussion]'); await A.waitForSelector('.chat');
   console.log('ok  thème choisi, gardé après réouverture');
 
+  // En ligne, écrit…, vu à
+  const presTxt = () => (document.getElementById('presence') || {}).textContent || '';
+  await wait(A, () => ((document.getElementById('presence') || {}).textContent || '') === 'en ligne', null, 20000);
+  await wait(B, () => ((document.getElementById('presence') || {}).textContent || '') === 'en ligne', null, 20000);
+  await B.click('#txt'); await B.keyboard.type('Je t’écris');
+  await wait(A, () => ((document.getElementById('presence') || {}).textContent || '') === 'écrit…');
+  await A.screenshot({ path: OUT + '/17-ecrit.png' });
+  await B.fill('#txt', '');
+  await B.click('button[aria-label=Verrouiller]'); await B.waitForSelector('#pin');
+  await wait(A, () => /^vu aujourd’hui à \d\d:\d\d$/.test((document.getElementById('presence') || {}).textContent || ''));
+  await A.screenshot({ path: OUT + '/18-vu.png' });
+  s = await st();
+  assert(s.pres.length > 0 && !/typing|hello|"k"|en ligne/.test(JSON.stringify(s.pres)), 'présence chiffrée');
+  await B.fill('#pin', '739164'); await B.click('button[type=submit]'); await B.waitForSelector('.chat', { timeout: 20000 });
+  await wait(A, () => ((document.getElementById('presence') || {}).textContent || '') === 'en ligne');
+  await B.click('button[aria-label=Vous]'); await B.selectOption('#set-pres', 'off');
+  await wait(A, () => /Chiffré/.test((document.getElementById('presence') || {}).textContent || ''));
+  await B.selectOption('#set-pres', 'on');
+  await wait(A, () => ((document.getElementById('presence') || {}).textContent || '') === 'en ligne');
+  await B.click('button[aria-label=Discussion]'); await B.waitForSelector('.chat');
+  console.log('ok  en ligne, écrit…, vu à, caché ; serveur aveugle');
+
   // Historique local chiffré
   const raw = await A.evaluate(() => new Promise(r => { const q = indexedDB.open('the-queen', 1); q.onsuccess = () => { const t = q.result.transaction('msgs').objectStore('msgs').getAll(); t.onsuccess = () => r(JSON.stringify(t.result)); }; }));
   assert(!raw.includes('rendez-vous'), 'historique local chiffré');

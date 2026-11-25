@@ -41,6 +41,16 @@
     async removeFile(path) { chk(await sb.storage.from('coffre').remove([path])); },
     async inbox(myId) { return chk(await sb.from('messages').select('id,env,created_at').eq('recipient', myId).order('created_at').limit(200)); },
     async remove(id) { chk(await sb.from('messages').delete().eq('id', id)); },
+    // Salon de présence : le serveur ne voit que des signaux chiffrés.
+    presence(room, onMsg) {
+      const ch = sb.channel('pres-' + room, { config: { broadcast: { self: false } } })
+        .on('broadcast', { event: 'p' }, m => { if (m && m.payload && typeof m.payload.d === 'string') onMsg(m.payload.d); })
+        .subscribe();
+      return {
+        send(d) { try { ch.send({ type: 'broadcast', event: 'p', payload: { d } }); } catch (e) {} },
+        close() { try { sb.removeChannel(ch); } catch (e) {} }
+      };
+    },
     subscribe(myId, onNew) {
       const ch = sb.channel('inbox-' + myId)
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: 'recipient=eq.' + myId }, p => onNew(p.new))
