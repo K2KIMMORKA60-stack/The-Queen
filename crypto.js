@@ -145,6 +145,18 @@
     return JSON.parse(td.decode(await aesDec(key, { iv, ct }, NOTIF_AAD)).trim());
   }
 
+  // Présence (« en ligne », « écrit… ») : petits signaux chiffrés avec la clé commune.
+  const PRES_AAD = te.encode('queen-pres-v1');
+  async function presSeal(key, obj) {
+    const raw = JSON.stringify(obj);
+    const box = await aesEnc(key, te.encode(raw + ' '.repeat(Math.max(0, 96 - raw.length))), PRES_AAD);
+    return box.iv + '.' + box.ct;
+  }
+  async function presOpen(key, str) {
+    const [iv, ct] = String(str).split('.');
+    return JSON.parse(td.decode(await aesDec(key, { iv, ct }, PRES_AAD)).trim());
+  }
+
   // Fichiers (vidéos) : chiffrés avec une clé neuve, envoyée dans le message chiffré.
   async function sealFile(bytes) {
     const raw = rand(32), iv = rand(12);
@@ -240,7 +252,7 @@
   g.QueenCrypto = {
     createIdentity, sealVault, resealVault, openVault, loadKeys, rotateIfNeeded, currentSpk,
     publicBundle, verifySpk, encrypt, decrypt, safetyNumber, localSeal, localOpen, randId,
-    notifKey, notifSeal, notifOpen, sealFile, openFile, localSealBytes, localOpenBytes,
+    notifKey, notifSeal, notifOpen, presSeal, presOpen, sealFile, openFile, localSealBytes, localOpenBytes,
     _test: { SPK_ROTATE, SPK_KEEP }
   };
 })(typeof self !== 'undefined' ? self : globalThis);

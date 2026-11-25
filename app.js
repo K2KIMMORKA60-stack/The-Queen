@@ -2,7 +2,7 @@
 (function () {
   'use strict';
   const C = self.QueenCrypto, S = self.QueenStore, A = self.QueenAPI;
-  const VERSION = '1.2.0';
+  const VERSION = '1.3.0';
   const root = document.getElementById('app');
   const DAY = 86400000;
   const MAX_ABOUT = 140, MAX_STATUS_TXT = 700, MAX_STATUS_IMG = 1.2e6, MAX_AVATAR = 250000;
@@ -364,6 +364,7 @@
   function lock(silent) {
     if (call.active || call.incoming) endCall(true, 'lock');
     if (st.rec) stopRecording(false);
+    stopPresence(true);
     if (st.unsub) { st.unsub(); st.unsub = null; }
     st.timers.forEach(clearInterval); st.timers = [];
     st.vault = st.pinKey = st.keys = null; st.unlocked = false;
@@ -417,6 +418,7 @@
     await saveSettings();
     await setupNotifKey(row);
     renderHeader();
+    startPresence();
   }
 
   // ---------- notifications ----------
@@ -427,6 +429,94 @@
       await S.put('kv', 'notif-name', peerName());
     } catch (e) { st.nkey = null; }
   }
+  // ---------- en ligne, écrit…, vu à ----------
+  // Signaux chiffrés avec la clé commune ; le serveur ne voit qu'un salon et des octets illisibles.
+  const PRES_BEAT = 20000, PRES_GONE = 50000, PRES_TYPING = 6000;
+  const pres = { ch: null, room: '', peerOn: false, lastBeat: 0, lastTs: 0, typingUntil: 0, sentTyping: 0, timer: null };
+  const showPresence = () => !!(st.settings && st.settings.showPresence !== false);
+  async function presSend(k) {
+    if (!pres.ch || !st.nkey || !st.unlocked) return;
+    try { pres.ch.send(await C.presSeal(st.nkey, { k, f: uid(), ts: Date.now() })); } catch (e) {}
+  }
+  async function startPresence() {
+    if (!st.unlocked || !st.peer || st.keyChanged || !showPresence() || !A.presence) return stopPresence(false);
+    if (!st.nkey) await setupNotifKey(st.peer);
+    if (!st.nkey) return;
+    const room = [uid(), st.peer.user_id].sort().join('-');
+    if (pres.ch && pres.room === room) return;
+    stopPresence(false);
+    pres.room = room;
+    pres.ch = A.presence(room, onPresence);
+    pres.timer = setInterval(presTick, 5000);
+    setTimeout(() => { if (document.visibilityState === 'visible') presSend('hello'); }, 600);
+  }
+  function stopPresence(sayBye) {
+    if (pres.ch && sayBye) presSend('off');
+    const ch = pres.ch; pres.ch = null; pres.room = '';
+    if (ch) setTimeout(() => ch.close(), sayBye ? 400 : 0);
+    if (pres.timer) clearInterval(pres.timer);
+    pres.timer = null; pres.peerOn = false; pres.typingUntil = 0; pres.lastTs = 0;
+  }
+  async function onPresence(d) {
+    if (!st.nkey || !st.peer) return;
+    let m; try { m = await C.presOpen(st.nkey, d); } catch (e) { return; }
+    const now = Date.now();
+    if (!m || m.f !== st.peer.user_id || typeof m.ts !== 'number') return;
+    if (Math.abs(now - m.ts) > 120000 || m.ts <= pres.lastTs) return;   // vieux signal rejoué : ignoré
+    pres.lastTs = m.ts;
+    if (m.k === 'hide') { pres.peerOn = false; pres.typingUntil = 0; st.settings.peerSeen = null; await saveSettings().catch(() => {}); }
+    else if (m.k === 'off') { pres.peerOn = false; pres.typingUntil = 0; await savePeerSeen(m.ts); }
+    else if (m.k === 'on' || m.k === 'hello' || m.k === 'typing') {
+      pres.peerOn = true; pres.lastBeat = now;
+      pres.typingUntil = m.k === 'typing' ? now + PRES_TYPING : 0;
+      if (m.k === 'hello' && document.visibilityState === 'visible') presSend('on');
+    }
+    paintPresence();
+  }
+  async function savePeerSeen(ts) {
+    if (!st.settings || !st.unlocked) return;
+    if (!st.settings.peerSeen || ts > st.settings.peerSeen) { st.settings.peerSeen = ts; await saveSettings().catch(() => {}); }
+  }
+  function presTick() {
+    const now = Date.now();
+    if (document.visibilityState === 'visible' && now - (pres.beatSent || 0) >= PRES_BEAT) { pres.beatSent = now; presSend('on'); }
+    if (pres.peerOn && now - pres.lastBeat > PRES_GONE) { pres.peerOn = false; savePeerSeen(pres.lastBeat); }
+    paintPresence();
+  }
+  function onTyping(text) {
+    if (!pres.ch || !text) return;
+    const now = Date.now();
+    if (now - pres.sentTyping > 3000) { pres.sentTyping = now; presSend('typing'); }
+  }
+  function fmtSeen(ts) {
+    const d = new Date(ts), t = fmtTime(ts), today = new Date(); today.setHours(0, 0, 0, 0);
+    if (ts >= today.getTime()) return 'vu aujourd’hui à ' + t;
+    if (ts >= today.getTime() - DAY) return 'vu hier à ' + t;
+    return 'vu le ' + d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) + ' à ' + t;
+  }
+  function presenceLine() {
+    if (!showPresence() || !st.peer || st.keyChanged) return null;
+    if (pres.peerOn && pres.typingUntil > Date.now()) return { cls: 'pres typing', text: 'écrit…' };
+    if (pres.peerOn) return { cls: 'pres on', text: 'en ligne' };
+    if (st.settings.peerSeen) return { cls: 'pres', text: fmtSeen(st.settings.peerSeen) };
+    return null;
+  }
+  function subLine(verified) {
+    const p = presenceLine();
+    if (p) return h('small', { id: 'presence', class: p.cls, text: p.text });
+    return h('small', { id: 'presence', class: verified ? 'ok' : '' }, icon('lock', 'tiny'), verified ? ' Chiffré · code vérifié' : ' Chiffré de bout en bout');
+  }
+  let lastPaint = '';
+  function paintPresence() {
+    const el = document.getElementById('presence');
+    if (!el || !st.unlocked) return;
+    const p = presenceLine(), key = p ? p.cls + p.text : 'lock';
+    if (key === lastPaint && el.dataset.k === key) return;
+    lastPaint = key;
+    const verified = st.settings.peerPin && st.settings.peerPin.verified && !st.keyChanged;
+    const nu = subLine(verified); nu.dataset.k = key; el.replaceWith(nu);
+  }
+
   const pushSupported = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window && !!(self.QUEEN_CONFIG || {}).vapidPublicKey;
   async function notifMode() { return (await S.get('kv', 'notif-mode')) || 'type'; }
   function b64uToBytes(s) { s = s.replace(/-/g, '+').replace(/_/g, '/'); while (s.length % 4) s += '='; return Uint8Array.from(atob(s), c => c.charCodeAt(0)); }
@@ -540,6 +630,7 @@
       st.settings.ttl = p.ttl; await saveSettings();
       await addSystem(peerName() + (p.ttl ? ' a activé les messages éphémères : ' + TTL_LABEL[p.ttl] + '.' : ' a désactivé les messages éphémères.'));
     } else if ((p.t === 'text' || p.t === 'image' || p.t === 'audio' || p.t === 'video') && typeof p.id === 'string' && p.id.length <= 40) {
+      pres.typingUntil = 0; pres.peerOn = true; pres.lastBeat = Date.now(); paintPresence();
       let body = null;
       if (p.t === 'video' && !st.msgs.has(p.id)) {
         body = await receiveVideo(p);
@@ -732,7 +823,7 @@
       avatarBtn(),
       h('button', { class: 'who', type: 'button', onclick: viewPeerProfile },
         h('strong', { text: hasPeer ? peerName() : 'The Queen' }),
-        h('small', { class: verified ? 'ok' : '' }, icon('lock', 'tiny'), verified ? ' Chiffré · code vérifié' : ' Chiffré de bout en bout')),
+        subLine(verified)),
       btnIcon('phone', 'Appel vocal', () => startCall(false)),
       btnIcon('video', 'Appel vidéo', () => startCall(true)),
       btnIcon('lock', 'Verrouiller', () => lock()));
@@ -857,7 +948,7 @@
       action.replaceChildren(icon(has ? 'send' : 'mic'));
       action.setAttribute('aria-label', has ? 'Envoyer' : 'Enregistrer un vocal');
     };
-    ta.addEventListener('input', () => { ta.style.height = 'auto'; ta.style.height = Math.min(140, ta.scrollHeight) + 'px'; setAction(); });
+    ta.addEventListener('input', () => { ta.style.height = 'auto'; ta.style.height = Math.min(140, ta.scrollHeight) + 'px'; setAction(); onTyping(ta.value.trim()); });
     ta.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey && matchMedia('(pointer:fine)').matches) { e.preventDefault(); action.click(); } });
     action.addEventListener('click', () => {
       const v = ta.value.trim();
@@ -1448,6 +1539,14 @@
     const verified = st.settings.peerPin && st.settings.peerPin.verified;
     const notif = h('select', { id: 'set-notif' }, [['type', 'Type de message et nombre'], ['discret', 'Discret : « Nouveau message »'], ['off', 'Désactivées']].map(([v, l]) => h('option', { value: v, text: l })));
     notifMode().then(v => { notif.value = v; });
+    const presSel = h('select', { id: 'set-pres' }, [['on', 'Visibles'], ['off', 'Cachés']].map(([v, l]) => h('option', { value: v, selected: (v === 'on') === showPresence(), text: l })));
+    presSel.addEventListener('change', async () => {
+      const on = presSel.value === 'on';
+      if (!on) { await presSend('hide'); stopPresence(false); st.settings.peerSeen = null; }
+      st.settings.showPresence = on; await saveSettings();
+      if (on) startPresence();
+      toast(on ? '« En ligne » visible.' : '« En ligne » caché.');
+    });
     notif.addEventListener('change', async () => {
       await S.put('kv', 'notif-mode', notif.value);
       if (notif.value === 'off') { await disablePush(); toast('Notifications désactivées.'); }
@@ -1459,6 +1558,8 @@
         h('label', { for: 'set-ttl', text: 'Messages éphémères (s’effacent tout seuls)' }), ttl,
         h('label', { for: 'set-notif', text: 'Notifications' }), notif,
         h('p', { class: 'hint', text: '« Type de message » affiche Photo, Vidéo ou Vocal et le nombre. « Discret » affiche seulement « Nouveau message ». Le texte des messages n’apparaît jamais.' }),
+        h('label', { for: 'set-pres', text: '« En ligne », « écrit… » et « vu à »' }), presSel,
+        h('p', { class: 'hint', text: 'Si tu les caches, ta moitié ne les voit plus chez toi, et toi non plus chez elle.' }),
         h('label', { for: 'set-lock', text: 'Verrouillage quand tu quittes l’appli' }), lk,
         h('button', { class: 'btn', type: 'button', text: 'Changer mon code secret', onclick: viewChangePin })),
       h('section', { class: 'card' }, h('h3', { text: 'Profil' }),
@@ -1552,16 +1653,18 @@
     if (document.visibilityState === 'hidden') {
       document.body.classList.add('veil');
       st.hiddenAt = Date.now();
+      if (st.unlocked) presSend('off');
       if (st.unlocked && st.settings && st.settings.lockAfter === 0 && !call.active) lock();
     } else {
       document.body.classList.remove('veil');
       if (st.unlocked && st.settings && st.hiddenAt && !call.active && Date.now() - st.hiddenAt > st.settings.lockAfter * 1000) lock();
-      else if (st.unlocked) { pullInbox(); flushOutbox(); markRead(); }
+      else if (st.unlocked) { pullInbox(); flushOutbox(); markRead(); pres.beatSent = Date.now(); presSend('hello'); }
       else clearNotifs();
     }
   });
   window.addEventListener('online', () => { if (st.unlocked) { renderHeader(); refreshPeer().then(() => { pullInbox(); flushOutbox(); }); } });
   window.addEventListener('offline', () => renderHeader());
+  window.addEventListener('pagehide', () => { if (st.unlocked) presSend('off'); });
 
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
   self.QueenApp = { st, call, version: VERSION };
